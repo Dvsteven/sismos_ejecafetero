@@ -1,0 +1,14 @@
+{
+  "name": "sismos-zona",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "vapid": "node scripts/generar-vapid.mjs",
+    "test:zona": "node scripts/probar-zona.mjs",
+    "dev": "netlify dev"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0",
+    "web-push": "^3.6.7"
+  }
+}

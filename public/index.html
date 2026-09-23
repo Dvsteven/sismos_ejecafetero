@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Sismos en mi zona</title>
+  <meta name="description" content="Alertas de sismos en el Eje Cafetero y alrededores, con datos del Servicio Geológico Colombiano.">
+  <meta name="theme-color" content="#13293D">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Sismos">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500;62..125,800&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="sismograma" aria-live="polite">
+    <svg id="traza" viewBox="0 0 1000 160" preserveAspectRatio="none" aria-hidden="true"></svg>
+    <div class="sismograma__texto">
+      <p id="estado-titulo" class="titular">Leyendo el feed del SGC</p>
+      <p id="estado-detalle" class="detalle">Últimos 5 días dentro de tu zona.</p>
+    </div>
+  </header>
+
+  <main>
+    <section class="alertas" aria-labelledby="alertas-titulo">
+      <h2 id="alertas-titulo">Alertas en este dispositivo</h2>
+      <p id="alertas-estado" class="alertas__estado">Revisando permisos…</p>
+
+      <label class="umbral" for="minMag">
+        <span>Avisarme desde</span>
+        <output id="minMag-valor" for="minMag">cualquier magnitud</output>
+      </label>
+      <input id="minMag" type="range" min="0" max="5" step="0.5" value="0">
+
+      <div class="acciones">
+        <button id="btn-activar" class="btn btn--principal" type="button">Activar alertas</button>
+        <button id="btn-probar" class="btn" type="button" hidden>Enviar prueba</button>
+        <button id="btn-desactivar" class="btn btn--quieto" type="button" hidden>Desactivar</button>
+      </div>
+
+      <p id="ios-aviso" class="aviso" hidden>
+        En iPhone, las alertas solo funcionan con la app instalada: toca Compartir y luego
+        «Agregar a pantalla de inicio», y ábrela desde ese ícono.
+      </p>
+      <button id="btn-instalar" class="btn btn--quieto" type="button" hidden>Instalar la app</button>
+    </section>
+
+    <section aria-labelledby="mapa-titulo">
+      <h2 id="mapa-titulo">Zona vigilada</h2>
+      <div id="mapa" role="img" aria-label="Mapa de la zona vigilada con los sismos recientes"></div>
+    </section>
+
+    <section aria-labelledby="lista-titulo">
+      <h2 id="lista-titulo">Sismos recientes</h2>
+      <ol id="lista" class="lista"></ol>
+    </section>
+
+    <footer class="pie">
+      <p>Datos del <a href="https://www.sgc.gov.co/sismos" rel="noopener">Servicio Geológico Colombiano</a>.
+      Esto no es un sistema de alerta temprana: avisa minutos después de que el SGC publica
+      el evento. Si sientes un sismo fuerte, protégete primero y reporta en
+      <a href="https://sismosentido.sgc.gov.co" rel="noopener">sismosentido.sgc.gov.co</a>.</p>
+    </footer>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="/app.js" type="module"></script>
+</body>
+</html>
