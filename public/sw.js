@@ -1,4 +1,4 @@
-const CACHE = 'sismos-v4';
+const CACHE = 'sismos-2026-09-23.4';
 const SHELL = ['/', '/index.html', '/styles.css', '/app.js', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/badge-96.png'];
 
 self.addEventListener('install', (e) => {

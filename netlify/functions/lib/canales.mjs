@@ -9,6 +9,7 @@
 //   otros: { canal, destino, minMag, confirmado, token, creado, etiqueta }
 import { randomBytes, createHash } from 'node:crypto';
 import { configurarVapid, enviar as enviarPush } from './push.mjs';
+import { leerLlaves } from './vapid.mjs';
 
 export const aleatorio = (n = 12) => randomBytes(n).toString('base64url');
 export const hash = (t) => createHash('sha256').update(t).digest('base64url').slice(0, 24);
@@ -160,7 +161,7 @@ export const umbralDe = (reg) =>
 /** Qué canales están configurados en el servidor. */
 export async function canalesDisponibles() {
   return {
-    push: Boolean(process.env.VAPID_PUBLIC_KEY),
+    push: leerLlaves().ok,
     telegram: process.env.TELEGRAM_BOT_TOKEN ? { bot: await nombreBot().catch(() => null) } : false,
     correo: process.env.RESEND_API_KEY ? { minMag: CORREO_MIN_MAG } : false,
     ntfy: process.env.NTFY_DESACTIVADO ? false : { servidor: NTFY_SERVIDOR },

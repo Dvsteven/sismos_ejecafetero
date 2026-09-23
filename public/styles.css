@@ -187,3 +187,5 @@ a.btn { text-decoration: none; display: inline-block; }
 
 .pie { margin-top: 2.5rem; font-size: .9rem; color: var(--texto-suave); }
 .pie a { color: inherit; }
+
+.version { font-size: .8rem; opacity: .7; }

@@ -1,4 +1,5 @@
 const $ = (id) => document.getElementById(id);
+const VERSION = '2026-09-23.4';
 const CLAVE_UMBRAL = 'sismos:minMag';
 
 // ---------- Utilidades ----------
@@ -127,14 +128,6 @@ function pintarSismos(sismos, destacado) {
   if (destacado) $(`s-${destacado}`)?.scrollIntoView({ block: 'center' });
 }
 
-function notaFuentes(fuentes) {
-  if (!fuentes) return '';
-  const caidas = Object.entries(fuentes).filter(([, v]) => String(v).startsWith('error')).map(([k]) => k.toUpperCase());
-  if (!caidas.length) return '';
-  const vivas = Object.keys(fuentes).map((k) => k.toUpperCase()).filter((k) => !caidas.includes(k));
-  return ` Sin respuesta de ${caidas.join(' y ')}; datos de ${vivas.join(' y ')}.`;
-}
-
 function pintarEncabezado(sismos, error, fuentes) {
   if (error) {
     $('estado-titulo').textContent = 'Sin datos por ahora';
@@ -150,8 +143,7 @@ function pintarEncabezado(sismos, error, fuentes) {
   const mayor = sismos.reduce((a, b) => (b.mag > a.mag ? b : a));
   $('estado-titulo').textContent = `M${u.mag.toFixed(1)} en ${u.lugar.split(' - ')[0]}, ${haceCuanto(u.utc)}`;
   $('estado-detalle').textContent =
-    `${sismos.length} sismos en la zona en 5 días. El mayor fue M${mayor.mag.toFixed(1)} en ${mayor.lugar}.` +
-    notaFuentes(fuentes);
+    `${sismos.length} sismos en la zona en 5 días. El mayor fue M${mayor.mag.toFixed(1)} en ${mayor.lugar}.`;
 }
 
 async function cargarSismos() {
@@ -192,14 +184,25 @@ const mismasBytes = (a, b) => a && b && a.byteLength === b.byteLength &&
   new Uint8Array(a).every((v, i) => v === new Uint8Array(b)[i]);
 
 async function suscripcionVigente() {
-  const { publicKey } = await api('/api/vapid');
+  const { publicKey } = await api('/api/vapid'); // falla con mensaje claro si el servidor está mal configurado
   const llave = base64UrlABytes(publicKey);
   let sub = await registro.pushManager.getSubscription();
   if (sub && !mismasBytes(sub.options?.applicationServerKey, llave.buffer)) {
-    await sub.unsubscribe();
+    await sub.unsubscribe(); // se creó con otra llave: ya no sirve
     sub = null;
   }
-  return sub || registro.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: llave });
+  if (sub) return sub;
+  const opciones = { userVisibleOnly: true, applicationServerKey: llave };
+  try {
+    return await registro.pushManager.subscribe(opciones);
+  } catch (e) {
+    // Chrome a veces conserva una suscripción vieja invisible: se limpia y se reintenta una vez.
+    if (e.name === 'InvalidStateError') {
+      await (await registro.pushManager.getSubscription())?.unsubscribe();
+      return registro.pushManager.subscribe(opciones);
+    }
+    throw e;
+  }
 }
 
 async function guardarSuscripcion(sub) {
@@ -216,7 +219,11 @@ function explicarErrorSuscripcion(e) {
       'Suele pasar con DNS privado que bloquea dominios de Google, con Brave (activa "Usar servicios de Google ' +
       'para mensajería push" en Privacidad) o en teléfonos sin Google Play. Prueba Telegram o ntfy.';
   }
-  if (/applicationServerKey|InvalidAccessError/i.test(m)) return 'El servidor tiene mal configurada la llave de notificaciones.';
+  if (/VAPID|applicationServerKey|InvalidAccessError/i.test(m)) {
+    console.warn('Detalle para el administrador:', e.message);
+    return 'Las notificaciones del teléfono no están disponibles por ahora (configuración del servidor). ' +
+      'Mientras tanto puedes usar ntfy. Administrador: revisa /api/diagnostico.';
+  }
   return e.message;
 }
 
@@ -527,7 +534,15 @@ async function iniciarAvisos() {
   disponibles = await api('/api/canales').catch(() => ({ push: true }));
 
   if ('serviceWorker' in navigator) {
-    registro = await navigator.serviceWorker.register('/sw.js');
+    // Si ya había una versión anterior controlando la app, recarga una vez
+    // cuando la nueva tome el control: así nadie se queda con código viejo.
+    const habiaVersion = Boolean(navigator.serviceWorker.controller);
+    let recargado = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (habiaVersion && !recargado) { recargado = true; location.reload(); }
+    });
+    registro = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
+    registro.update().catch(() => {});
     await navigator.serviceWorker.ready;
     if ('PushManager' in window) {
       const sub = await registro.pushManager.getSubscription();
@@ -568,6 +583,7 @@ navigator.serviceWorker?.addEventListener('message', (e) => {
   if (e.data?.tipo === 'nuevo-sismo') cargarSismos();
 });
 
+$('version').textContent = `Versión ${VERSION}`;
 cargarSismos();
 setInterval(cargarSismos, 60_000);
 iniciarAvisos();

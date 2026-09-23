@@ -1,21 +1,12 @@
 import webpush from 'web-push';
 import { getStore } from '@netlify/blobs';
 import { createHash } from 'node:crypto';
+import { leerLlaves } from './vapid.mjs';
 
 export function configurarVapid() {
-  // Limpia comillas y espacios que a veces quedan al pegar en el panel.
-  const limpiar = (v) => (v || '').trim().replace(/^["']|["']$/g, '');
-  const VAPID_PUBLIC_KEY = limpiar(process.env.VAPID_PUBLIC_KEY);
-  const VAPID_PRIVATE_KEY = limpiar(process.env.VAPID_PRIVATE_KEY);
-  const VAPID_SUBJECT = limpiar(process.env.VAPID_SUBJECT);
-  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
-    throw new Error('Faltan VAPID_PUBLIC_KEY y VAPID_PRIVATE_KEY en las variables de entorno');
-  }
-  webpush.setVapidDetails(
-    VAPID_SUBJECT || 'mailto:alertas@example.com',
-    VAPID_PUBLIC_KEY,
-    VAPID_PRIVATE_KEY,
-  );
+  const ll = leerLlaves();
+  if (!ll.ok) throw new Error(ll.error);
+  webpush.setVapidDetails(ll.subject, ll.publica, ll.privada);
   return webpush;
 }
 
