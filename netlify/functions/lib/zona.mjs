@@ -82,7 +82,11 @@ export function normalizar(f) {
 /** Descarga el feed y devuelve solo los sismos dentro de la zona, recientes primero. */
 export async function sismosEnZona() {
   const r = await fetch(FEED_SGC, {
-    headers: { accept: 'application/json' },
+    headers: {
+      accept: 'application/json',
+      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+      referer: 'https://www.sgc.gov.co/',
+    },
     signal: AbortSignal.timeout(20_000),
   });
   if (!r.ok) throw new Error(`El feed del SGC respondió ${r.status}`);
