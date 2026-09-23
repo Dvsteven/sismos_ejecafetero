@@ -1,17 +1,18 @@
-import { sismosEnZona, ZONA, REFERENCIA } from './lib/zona.mjs';
+import { ZONA, REFERENCIA } from './lib/zona.mjs';
+import { obtenerSismos } from './lib/fuentes.mjs';
 import { json } from './lib/push.mjs';
 
-// Lista para la interfaz. El navegador no consulta al SGC directamente
-// (evita problemas de CORS y deja un solo lugar donde vive la lógica de zona).
+// Lista para la interfaz. Responde 200 mientras al menos una fuente funcione.
 export default async () => {
   try {
-    const sismos = await sismosEnZona();
+    const { sismos, fuentes } = await obtenerSismos();
     return new Response(
-      JSON.stringify({ zona: ZONA, referencia: REFERENCIA, sismos, consultado: new Date().toISOString() }),
-      { headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=60' } },
+      JSON.stringify({ zona: ZONA, referencia: REFERENCIA, sismos, fuentes, consultado: new Date().toISOString() }),
+      { headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=30' } },
     );
   } catch (e) {
-    return json({ zona: ZONA, referencia: REFERENCIA, sismos: [], error: e.message }, 502);
+    console.error(e.message);
+    return json({ zona: ZONA, referencia: REFERENCIA, sismos: [], error: e.message }, 503);
   }
 };
 

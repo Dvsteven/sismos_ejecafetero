@@ -2,6 +2,11 @@
 // compara los sismos del feed con los ya vistos y envía los push.
 import { configurarVapid, payloadDeSismo, tiendaEstado, tiendaSuscripciones } from './push.mjs';
 import { enviarPorCanal, umbralDe, canalDe } from './canales.mjs';
+import { mismoSismo } from './fuentes.mjs';
+
+// Nunca se avisa un sismo ocurrido hace más de esto: protege de avalanchas
+// cuando una fuente vuelve después de estar caída o se agrega una nueva.
+const MAX_EDAD_MS = 60 * 60 * 1000;
 
 const UN_DIA = 24 * 3600 * 1000;
 
@@ -16,7 +21,7 @@ export async function procesarSismos(sismos, { origen = 'netlify' } = {}) {
   if (!estado) {
     await estadoStore.setJSON(
       'vistos',
-      Object.fromEntries(sismos.map((s) => [s.id, { mag: s.mag, utc: s.utc }])),
+      Object.fromEntries(sismos.map((s) => [s.id, { mag: s.mag, utc: s.utc, lat: s.lat, lon: s.lon }])),
     );
     return { inicializado: true, avisos: 0, enviados: 0 };
   }
@@ -26,17 +31,22 @@ export async function procesarSismos(sismos, { origen = 'netlify' } = {}) {
   for (const s of sismos) {
     const previo = estado[s.id];
     if (!previo) {
+      // ¿Es un sismo que ya avisamos, pero reportado por otra agencia?
+      const gemelo = Object.values(estado).some((v) => v.lat != null && mismoSismo(v, s));
+      estado[s.id] = { mag: s.mag, utc: s.utc, lat: s.lat, lon: s.lon };
+      cambios = true;
+      if (gemelo) continue;
+      if (Date.now() - new Date(s.utc).getTime() > MAX_EDAD_MS) continue; // viejo: solo registrar
       avisos.push({ sismo: s, umbral: s.mag, corregido: false });
     } else if (Math.abs(s.mag - previo.mag) >= CORRECCION_MINIMA) {
+      // Corrección de la MISMA fuente (mismo id). Las diferencias entre
+      // agencias no cuentan: cada una calcula la magnitud a su manera.
       avisos.push({ sismo: s, umbral: Math.max(s.mag, previo.mag), corregido: true });
-    } else {
-      // Cambios pequeños no se guardan: la referencia sigue siendo la
-      // magnitud que ya se notificó, así varias correcciones chicas que
-      // suman ±0.5 también generan aviso.
-      continue;
+      estado[s.id] = { ...previo, mag: s.mag };
+      cambios = true;
     }
-    estado[s.id] = { mag: s.mag, utc: s.utc };
-    cambios = true;
+    // Cambios pequeños no se guardan: la referencia sigue siendo la
+    // magnitud ya notificada, así correcciones chicas que suman ±0.5 avisan.
   }
 
   const limite = Date.now() - SEIS_DIAS;

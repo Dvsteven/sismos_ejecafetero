@@ -103,7 +103,7 @@ function pintarSismos(sismos, destacado) {
             <span class="lugar">${s.lugar}</span>
             <span class="meta">${haceCuanto(s.utc)}, ${s.local?.slice(11, 16) ?? ''} hora local.
             ${s.profKm ?? '?'} km de profundidad, a ${s.distanciaKm} km de Pereira.
-            ${s.revisado ? '' : 'Automático.'}</span>
+            ${s.fuente && s.fuente !== 'SGC' ? `Fuente: ${s.fuente}.` : s.revisado ? '' : 'Automático.'}</span>
           </span>
         </li>`)
       .join('');
@@ -127,10 +127,18 @@ function pintarSismos(sismos, destacado) {
   if (destacado) $(`s-${destacado}`)?.scrollIntoView({ block: 'center' });
 }
 
-function pintarEncabezado(sismos, error) {
+function notaFuentes(fuentes) {
+  if (!fuentes) return '';
+  const caidas = Object.entries(fuentes).filter(([, v]) => String(v).startsWith('error')).map(([k]) => k.toUpperCase());
+  if (!caidas.length) return '';
+  const vivas = Object.keys(fuentes).map((k) => k.toUpperCase()).filter((k) => !caidas.includes(k));
+  return ` Sin respuesta de ${caidas.join(' y ')}; datos de ${vivas.join(' y ')}.`;
+}
+
+function pintarEncabezado(sismos, error, fuentes) {
   if (error) {
-    $('estado-titulo').textContent = 'El feed del SGC no responde';
-    $('estado-detalle').textContent = 'Se reintenta en un minuto. Las alertas siguen activas en el servidor.';
+    $('estado-titulo').textContent = 'Sin datos por ahora';
+    $('estado-detalle').textContent = 'Ninguna fuente sísmica respondió. Se reintenta en un minuto.';
     return;
   }
   if (!sismos.length) {
@@ -142,7 +150,8 @@ function pintarEncabezado(sismos, error) {
   const mayor = sismos.reduce((a, b) => (b.mag > a.mag ? b : a));
   $('estado-titulo').textContent = `M${u.mag.toFixed(1)} en ${u.lugar.split(' - ')[0]}, ${haceCuanto(u.utc)}`;
   $('estado-detalle').textContent =
-    `${sismos.length} sismos en la zona en 5 días. El mayor fue M${mayor.mag.toFixed(1)} en ${mayor.lugar}.`;
+    `${sismos.length} sismos en la zona en 5 días. El mayor fue M${mayor.mag.toFixed(1)} en ${mayor.lugar}.` +
+    notaFuentes(fuentes);
 }
 
 async function cargarSismos() {
@@ -150,7 +159,7 @@ async function cargarSismos() {
   try {
     const data = await api('/api/sismos');
     if (!mapa) iniciarMapa(data.zona, data.referencia);
-    pintarEncabezado(data.sismos);
+    pintarEncabezado(data.sismos, null, data.fuentes);
     dibujarSismograma(data.sismos);
     pintarSismos(data.sismos, destacado);
   } catch (e) {
@@ -430,7 +439,18 @@ async function probar(id, btn) {
   btn.disabled = true;
   try {
     if (id === 'push') {
-      const sub = await registro.pushManager.getSubscription();
+      let sub = await registro?.pushManager.getSubscription();
+      if (!sub) {
+        // El navegador perdió la suscripción: se rehace antes de probar.
+        try {
+          sub = await suscripcionVigente();
+          await guardarSuscripcion(sub);
+        } catch (e) {
+          pushActivo = false;
+          pintarAvisos();
+          throw new Error(explicarErrorSuscripcion(e));
+        }
+      }
       await api('/api/probar', { method: 'POST', body: JSON.stringify({ endpoint: sub.endpoint }) });
     } else {
       const c = leerCanales().find((x) => x.clave === id);
@@ -514,7 +534,15 @@ async function iniciarAvisos() {
       if (sub && Notification.permission === 'granted') {
         pushActivo = true;
         // Re-sincroniza por si el servidor la perdió o cambiaron las llaves.
-        suscripcionVigente().then(guardarSuscripcion).catch(() => {});
+        // Si el teléfono no logra re-suscribirse, se muestra como inactivo
+        // en vez de fingir que funciona.
+        suscripcionVigente()
+          .then((s) => guardarSuscripcion(s).catch(() => {}))
+          .catch((e) => {
+            pushActivo = false;
+            pintarAvisos();
+            $('alertas-estado').textContent = explicarErrorSuscripcion(e);
+          });
       }
     }
   }

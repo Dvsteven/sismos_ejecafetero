@@ -44,6 +44,19 @@ no cambió, el SGC responde 304 sin reenviar el archivo.
 La primera corrida de la función programada solo memoriza lo que ya está en el
 feed (no notifica 5 días de golpe). Desde la segunda, avisa lo nuevo.
 
+## Fuentes de datos
+
+`lib/fuentes.mjs` consulta en paralelo SGC (oficial, todas las magnitudes),
+EMSC y USGS, une los resultados y descarta duplicados (mismo sismo reportado
+por varias agencias: menos de 2 min y 100 km de diferencia). Si el SGC
+bloquea al servidor (403), las alertas siguen llegando con EMSC/USGS.
+
+Protecciones:
+- Nunca se avisa un sismo de hace más de 60 minutos (evita avalanchas cuando
+  una fuente vuelve).
+- Si otra agencia reporta un sismo ya avisado, no se repite el aviso.
+- Solo se re-avisa por corrección de magnitud dentro de la misma fuente.
+
 ## Medios de aviso
 
 Al tocar **Activar avisos**, cada persona elige por dónde recibirlos (puede

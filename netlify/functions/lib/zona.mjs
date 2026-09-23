@@ -7,8 +7,8 @@ export const ZONA = [
   [5.871, -75.162], // arriba der.
   [5.334, -74.532], // La Dorada
   [4.292, -74.525], // oriente de Girardot / Melgar
-  [3.707, -75.155], // sur (Chaparral)
-  [3.723, -76.089], // Buga
+  [3.450, -75.155], // sur, bajado para cubrir bien Chaparral, Ataco y Rioblanco
+  [3.550, -76.089], // sur de Buga
   [4.357, -76.745], // occidente de Roldanillo
   [5.275, -76.755], // Istmina / Condoto
 ];

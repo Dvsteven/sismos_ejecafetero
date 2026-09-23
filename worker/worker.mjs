@@ -4,7 +4,7 @@
 //
 // Variables requeridas: NETLIFY_SITE_ID, NETLIFY_API_TOKEN,
 // VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT.
-import { descargarFeed, filtrarFeed } from '../netlify/functions/lib/zona.mjs';
+import { obtenerSismos } from '../netlify/functions/lib/fuentes.mjs';
 import { procesarSismos, marcarLatido } from '../netlify/functions/lib/procesar.mjs';
 
 const REQUERIDAS = ['NETLIFY_SITE_ID', 'NETLIFY_API_TOKEN', 'VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY'];
@@ -14,11 +14,11 @@ if (faltan.length) {
   process.exit(1);
 }
 
-const INTERVALO_MS = Math.max(5, Number(process.env.POLL_SECONDS) || 12) * 1000;
+// 20 s por defecto: se consultan 3 fuentes por ciclo y EMSC/USGS piden moderación.
+const INTERVALO_MS = Math.max(10, Number(process.env.POLL_SECONDS) || 20) * 1000;
 const LATIDO_MS = 30_000;
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 
-let cache = {};
 let fallosSeguidos = 0;
 let ultimoLatido = 0;
 let detener = false;
@@ -26,13 +26,10 @@ let detener = false;
 async function ciclo() {
   const inicio = Date.now();
   try {
-    const r = await descargarFeed(cache);
-    cache = r.cache;
-    if (r.cambio) {
-      const res = await procesarSismos(filtrarFeed(r.feed), { origen: 'worker' });
-      if (res.inicializado) log('Estado inicializado sin notificar');
-      else if (res.avisos) log(`${res.avisos} avisos, ${res.enviados} push enviados en ${Date.now() - inicio} ms`);
-    }
+    const { sismos } = await obtenerSismos();
+    const res = await procesarSismos(sismos, { origen: 'worker' });
+    if (res.inicializado) log('Estado inicializado sin notificar');
+    else if (res.avisos) log(`${res.avisos} avisos, ${res.enviados} envíos en ${Date.now() - inicio} ms`);
     if (Date.now() - ultimoLatido > LATIDO_MS) {
       await marcarLatido();
       ultimoLatido = Date.now();

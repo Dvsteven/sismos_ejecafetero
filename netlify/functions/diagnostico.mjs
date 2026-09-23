@@ -3,7 +3,7 @@
 import { createECDH } from 'node:crypto';
 import { json, tiendaSuscripciones } from './lib/push.mjs';
 import { latidoVigente } from './lib/procesar.mjs';
-import { descargarFeed, filtrarFeed } from './lib/zona.mjs';
+import { obtenerSismos } from './lib/fuentes.mjs';
 import { canalesDisponibles, canalDe } from './lib/canales.mjs';
 
 const b64url = (buf) => Buffer.from(buf).toString('base64url');
@@ -57,10 +57,11 @@ export default async () => {
   }
 
   try {
-    const { feed } = await descargarFeed();
-    d.feedSGC = `ok, ${feed.features.length} eventos, ${filtrarFeed(feed).length} en tu zona`;
+    const { sismos, fuentes } = await obtenerSismos();
+    d.fuentes = fuentes;
+    d.ultimoSismo = sismos[0] ? `M${sismos[0].mag} ${sismos[0].lugar} (${sismos[0].fuente}, ${sismos[0].local})` : 'ninguno';
   } catch (e) {
-    d.feedSGC = `error: ${e.message}`;
+    d.fuentes = `error: ${e.message}`;
   }
 
   return json(d);
