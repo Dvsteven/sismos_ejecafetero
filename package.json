@@ -5,10 +5,15 @@
   "scripts": {
     "vapid": "node scripts/generar-vapid.mjs",
     "test:zona": "node scripts/probar-zona.mjs",
-    "dev": "netlify dev"
+    "dev": "netlify dev",
+    "worker": "node worker/worker.mjs",
+    "telegram": "node scripts/configurar-telegram.mjs"
   },
   "dependencies": {
     "@netlify/blobs": "^8.1.0",
     "web-push": "^3.6.7"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

@@ -28,8 +28,8 @@
 
   <main>
     <section class="alertas" aria-labelledby="alertas-titulo">
-      <h2 id="alertas-titulo">Alertas en este dispositivo</h2>
-      <p id="alertas-estado" class="alertas__estado">Revisando permisos…</p>
+      <h2 id="alertas-titulo">Avisos</h2>
+      <p id="alertas-estado" class="alertas__estado" aria-live="polite">Cargando…</p>
 
       <label class="umbral" for="minMag">
         <span>Avisarme desde</span>
@@ -37,15 +37,21 @@
       </label>
       <input id="minMag" type="range" min="0" max="5" step="0.5" value="0">
 
-      <div class="acciones">
-        <button id="btn-activar" class="btn btn--principal" type="button">Activar alertas</button>
-        <button id="btn-probar" class="btn" type="button" hidden>Enviar prueba</button>
-        <button id="btn-desactivar" class="btn btn--quieto" type="button" hidden>Desactivar</button>
+      <ul id="mis-canales" class="mis-canales"></ul>
+
+      <button id="btn-agregar" class="btn btn--principal" type="button">Activar avisos</button>
+
+      <div id="selector" class="selector" hidden>
+        <h3>¿Por dónde te avisamos?</h3>
+        <p class="meta">Puedes activar más de uno.</p>
+        <div id="opciones" class="opciones"></div>
+        <div id="paso" class="paso" aria-live="polite"></div>
+        <button id="btn-cancelar" class="btn btn--quieto" type="button">Cerrar</button>
       </div>
 
       <p id="ios-aviso" class="aviso" hidden>
-        En iPhone, las alertas solo funcionan con la app instalada: toca Compartir y luego
-        «Agregar a pantalla de inicio», y ábrela desde ese ícono.
+        En iPhone, las notificaciones de la app solo funcionan instalada: toca Compartir y luego
+        «Agregar a pantalla de inicio». Telegram, correo y ntfy funcionan sin instalarla.
       </p>
       <button id="btn-instalar" class="btn btn--quieto" type="button" hidden>Instalar la app</button>
     </section>

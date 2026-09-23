@@ -1,6 +1,7 @@
 node_modules/
+.netlify/
 .env
+.env.*
+!.env.example
+*.zip
 .DS_Store
-.vscode/
-dist/
-.cache/

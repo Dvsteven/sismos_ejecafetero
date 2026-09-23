@@ -79,21 +79,37 @@ export function normalizar(f) {
   };
 }
 
-/** Descarga el feed y devuelve solo los sismos dentro de la zona, recientes primero. */
-export async function sismosEnZona() {
-  const r = await fetch(FEED_SGC, {
-    headers: {
-      accept: 'application/json',
-      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
-      referer: 'https://www.sgc.gov.co/',
-    },
-    signal: AbortSignal.timeout(20_000),
-  });
-  if (!r.ok) throw new Error(`El feed del SGC respondió ${r.status}`);
-  const feed = await r.json();
+/** Filtra un feed ya descargado: solo sismos dentro de la zona, recientes primero. */
+export function filtrarFeed(feed) {
   if (!Array.isArray(feed?.features)) throw new Error('El feed del SGC no trae "features"');
   return feed.features
     .map(normalizar)
     .filter((s) => s.id && Number.isFinite(s.mag) && Number.isFinite(s.lat) && dentroDeZona(s.lat, s.lon))
     .sort((a, b) => (b.utc ?? '').localeCompare(a.utc ?? ''));
+}
+
+/**
+ * Descarga el feed con petición condicional. Si el servidor responde 304
+ * (nada cambió desde la última vez) devuelve { cambio: false } sin bajar el
+ * archivo completo: así consultar cada pocos segundos no castiga al SGC.
+ */
+export async function descargarFeed(cache = {}, url = process.env.FEED_URL || FEED_SGC) {
+  const headers = { accept: 'application/json' };
+  if (cache.etag) headers['if-none-match'] = cache.etag;
+  if (cache.lastModified) headers['if-modified-since'] = cache.lastModified;
+  const r = await fetch(url, { headers, signal: AbortSignal.timeout(20_000) });
+  if (r.status === 304) return { cambio: false, cache };
+  if (!r.ok) throw new Error(`El feed del SGC respondió ${r.status}`);
+  const feed = await r.json();
+  return {
+    cambio: true,
+    feed,
+    cache: { etag: r.headers.get('etag'), lastModified: r.headers.get('last-modified') },
+  };
+}
+
+/** Descarga el feed completo y devuelve solo los sismos dentro de la zona. */
+export async function sismosEnZona() {
+  const { feed } = await descargarFeed();
+  return filtrarFeed(feed);
 }
