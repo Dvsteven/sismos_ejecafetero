@@ -45,23 +45,31 @@ self.addEventListener('push', (e) => {
         requireInteraction: fuerte,
         data: { url: d.url || '/' },
       }),
-      self.clients.matchAll({ type: 'window' }).then((cs) => cs.forEach((c) => c.postMessage({ tipo: 'nuevo-sismo' }))),
-      reproducirAlerta(),
+      self.clients.matchAll({ type: 'window' }).then((cs) =>
+        cs.forEach((c) => {
+          c.postMessage({ tipo: 'nuevo-sismo' });
+          c.postMessage({ tipo: 'reproducir-alerta' });
+        }),
+      ),
+      // Intenta sonar aunque la app esté cerrada. En algunos navegadores el
+      // evento push permite reproducir audio sin interacción del usuario.
+      reproducirAlertaSW(),
     ]),
   );
 });
 
-async function reproducirAlerta() {
+async function reproducirAlertaSW() {
   try {
     const cache = await caches.open(CACHE);
     const respuesta = await cache.match('/Sounds/Google_Earthquake_Alert_Sound.mp3');
     const blob = respuesta ? await respuesta.blob() : null;
-    const url = blob ? URL.createObjectURL(blob) : '/Sounds/Google_Earthquake_Alert_Sound.mp3';
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
     audio.volume = 1;
     await audio.play();
   } catch (err) {
-    console.error('No se pudo reproducir la alerta de audio:', err);
+    console.warn('SW no pudo reproducir audio:', err);
   }
 }
 
@@ -69,10 +77,22 @@ self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   const destino = new URL(e.notification.data?.url || '/', location.origin).href;
   e.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (cs) => {
       const abierta = cs.find((c) => new URL(c.url).origin === location.origin);
-      if (abierta) return abierta.navigate(destino).then((c) => c?.focus());
-      return self.clients.openWindow(destino);
+      let cliente;
+      if (abierta) {
+        cliente = await abierta.navigate(destino).then((c) => {
+          c?.focus();
+          return c;
+        });
+      } else {
+        cliente = await self.clients.openWindow(destino);
+      }
+      // Al abrir la app desde la notificación, le pedimos que reproduzca
+      // el sonido personalizado (la interacción del usuario lo permite).
+      if (cliente) {
+        setTimeout(() => cliente.postMessage({ tipo: 'reproducir-alerta' }), 600);
+      }
     }),
   );
 });

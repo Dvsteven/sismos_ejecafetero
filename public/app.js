@@ -444,6 +444,8 @@ async function elegir(canal) {
 
 async function probar(id, btn) {
   btn.disabled = true;
+  // Primero reproduce el sonido localmente para que el usuario verifique el volumen.
+  reproducirAlertaLocal();
   try {
     if (id === 'push') {
       let sub = await registro?.pushManager.getSubscription();
@@ -512,6 +514,9 @@ async function iniciarAvisos() {
   $('minMag-valor').textContent = textoUmbral($('minMag').value);
   $('minMag').addEventListener('input', alCambiarUmbral);
 
+  // Precarga el sonido de alerta apenas inicia la app.
+  precargarAlerta().catch(() => {});
+
   $('btn-agregar').addEventListener('click', abrirSelector);
   $('btn-cancelar').addEventListener('click', cerrarSelector);
   $('opciones').addEventListener('click', (e) => {
@@ -549,14 +554,14 @@ async function iniciarAvisos() {
       if (sub && Notification.permission === 'granted') {
         pushActivo = true;
         // Re-sincroniza por si el servidor la perdió o cambiaron las llaves.
-        // Si el teléfono no logra re-suscribirse, se muestra como inactivo
-        // en vez de fingir que funciona.
+        // Si el teléfono no logra re-suscribirse, se deja como inactivo sin
+        // mostrar un error al usuario: él no pidió nada al abrir la app.
         suscripcionVigente()
           .then((s) => guardarSuscripcion(s).catch(() => {}))
           .catch((e) => {
             pushActivo = false;
             pintarAvisos();
-            $('alertas-estado').textContent = explicarErrorSuscripcion(e);
+            console.warn('No se pudo revalidar la suscripción push al iniciar:', e.message);
           });
       }
     }
@@ -581,7 +586,56 @@ $('btn-instalar').addEventListener('click', async () => {
 
 navigator.serviceWorker?.addEventListener('message', (e) => {
   if (e.data?.tipo === 'nuevo-sismo') cargarSismos();
+  if (e.data?.tipo === 'reproducir-alerta') reproducirAlertaLocal();
 });
+
+// ---------- Alerta de audio personalizada ----------
+let audioCtx;
+let alertaBuffer;
+
+function obtenerAudioContext() {
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return null;
+  if (!audioCtx) audioCtx = new Ctx();
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+  return audioCtx;
+}
+
+async function precargarAlerta() {
+  try {
+    const ctx = obtenerAudioContext();
+    if (!ctx) return;
+    const r = await fetch('/Sounds/Google_Earthquake_Alert_Sound.mp3');
+    const ab = await r.arrayBuffer();
+    alertaBuffer = await ctx.decodeAudioData(ab);
+  } catch (e) {
+    console.warn('No se pudo precargar la alerta de audio:', e);
+  }
+}
+
+function reproducirAlertaLocal() {
+  try {
+    const ctx = obtenerAudioContext();
+    if (!ctx) throw new Error('AudioContext no disponible');
+    if (!alertaBuffer) {
+      // Fallback si aún no está precargado
+      const audio = new Audio('/Sounds/Google_Earthquake_Alert_Sound.mp3');
+      audio.volume = 1;
+      audio.play().catch(() => {});
+      return;
+    }
+    const source = ctx.createBufferSource();
+    source.buffer = alertaBuffer;
+    source.connect(ctx.destination);
+    source.start(0);
+  } catch (err) {
+    console.warn('No se pudo reproducir la alerta:', err);
+  }
+}
+
+// Los navegadores mantienen el AudioContext suspendido hasta la primera
+// interacción; lo intentamos activar con cualquier toque en la app.
+addEventListener('pointerdown', () => obtenerAudioContext(), { once: true });
 
 $('version').textContent = `Versión ${VERSION}`;
 cargarSismos();
