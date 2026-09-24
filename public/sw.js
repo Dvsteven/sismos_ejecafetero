@@ -1,5 +1,5 @@
-const CACHE = 'sismos-2026-09-23.4';
-const SHELL = ['/', '/index.html', '/styles.css', '/app.js', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/badge-96.png'];
+const CACHE = 'sismos-2026-09-24.1';
+const SHELL = ['/', '/index.html', '/styles.css', '/app.js', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/badge-96.png', '/Sounds/Google_Earthquake_Alert_Sound.mp3'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -46,9 +46,24 @@ self.addEventListener('push', (e) => {
         data: { url: d.url || '/' },
       }),
       self.clients.matchAll({ type: 'window' }).then((cs) => cs.forEach((c) => c.postMessage({ tipo: 'nuevo-sismo' }))),
+      reproducirAlerta(),
     ]),
   );
 });
+
+async function reproducirAlerta() {
+  try {
+    const cache = await caches.open(CACHE);
+    const respuesta = await cache.match('/Sounds/Google_Earthquake_Alert_Sound.mp3');
+    const blob = respuesta ? await respuesta.blob() : null;
+    const url = blob ? URL.createObjectURL(blob) : '/Sounds/Google_Earthquake_Alert_Sound.mp3';
+    const audio = new Audio(url);
+    audio.volume = 1;
+    await audio.play();
+  } catch (err) {
+    console.error('No se pudo reproducir la alerta de audio:', err);
+  }
+}
 
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
