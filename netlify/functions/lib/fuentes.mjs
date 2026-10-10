@@ -8,6 +8,7 @@
 // Chaparral pasaría sin aviso. Se consultan las tres en paralelo, se unen y
 // se eliminan duplicados (el mismo sismo reportado por varias agencias).
 import { ZONA, FEED_SGC, dentroDeZona, distanciaKm, normalizar as normalizarSGC, REFERENCIA } from './zona.mjs';
+import { pedirJsonSGC } from './sgc-tls.mjs';
 
 const CINCO_DIAS = 5 * 86400e3;
 const CABECERAS = {
@@ -83,7 +84,7 @@ async function pedir(url, ms = 15_000) {
 
 const FUENTES = {
   async sgc() {
-    const feed = await pedir(process.env.FEED_URL || FEED_SGC);
+    const feed = await pedirJsonSGC(process.env.FEED_URL || FEED_SGC, CABECERAS);
     if (!Array.isArray(feed?.features)) throw new Error('formato inesperado');
     return feed.features.map((f) => ({ ...normalizarSGC(f), fuente: 'SGC' }));
   },
